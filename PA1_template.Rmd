@@ -1,25 +1,136 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+output: html_document
+keep_md: true
 ---
 
 
 ## Loading and preprocessing the data
+Charging data into a variable datos ...
+
+```{r, echo=TRUE}
+datos <- read.csv("activity.csv", header=TRUE)
+```
+
+<!--cleaning and preprocessing data, subsetting according date-->
+```{r, echo=FALSE}
+day<-levels(as.factor(datos$date))
+daily_mean<-c()
+daily_median<-c()
+totals<-c()
+for (i in day) {
+  sample<-subset(datos, date==i)
+  daily_mean<-c(daily_mean, mean(sample$steps, na.rm=TRUE) )
+  daily_median<-c(daily_median, median(sample$steps, na.rm=TRUE) )
+  totals<-c(totals,sum(sample$steps, na.rm=FALSE) )
+}
+resumen<-data.frame(day, daily_mean, daily_median, totals)
+
+```
 
 
 
 ## What is mean total number of steps taken per day?
+In this case, I select a simple histogram with breaks=8, NA values are ommited.
+```{r, echo=FALSE}
+grafo1<-hist(resumen$totals, main="Steps per day", xlab="Total steps per day", ylab="Total days",col="darkgreen", ylim=c(0,30), breaks=8)
+text(grafo1$mids, grafo1$counts, labels=grafo1$counts, adj=c(0.5, -0.5))
+```
 
+Then, a table with mean and median of total steps per day
+
+```{r, echo=FALSE, warning=FALSE,results='asis'}
+library(xtable)
+print(xtable(resumen[,c(1,2,3)]), type="html")
+```
 
 
 ## What is the average daily activity pattern?
+<!--obtaining subsets according to time interval -->
+```{r, echo=FALSE}
+intervalos<-levels(as.factor(datos$interval))
+interval_average<-c()
+for (i in intervalos) {
+  muestra<-subset(datos, interval==i)
+  interval_average<-c(interval_average, mean(muestra$steps, na.rm=TRUE))
+}
+plot(x=intervalos, y=interval_average, type="l")
+max<-max(interval_average)
+index<-which.max(interval_average)
+time_interval<-intervalos[index]
+print(paste("The interval with max value is", time_interval, "with ", max, " average steps" ))
+```
+## Imputing missing values
+Analyzing NA values in dataset ...
+```{r, echo=FALSE}
+print(paste("There are ", sum(is.na(datos)), "NA's in all the dataset"))
+tot_NA_rows<-sum(!complete.cases(datos))
+print(paste("and ",tot_NA_rows, " rows with NA values"   ))
+print("all NA values in steps variable")
+print(apply(X = is.na(datos), MARGIN = 2, FUN = sum))
+```
+
+
 
 
 
 ## Imputing missing values
+All  NA values will be replaced with media of that time interval in a new dataset named as (datos_limpios).
+```{r, echo=FALSE}
+datos_limpios<-datos
+datos_limpios$steps<-replace(datos_limpios$steps,is.na(datos_limpios$steps),interval_average )
 
+day_clean<-levels(as.factor(datos_limpios$date))
+daily_clean_mean<-c()
+daily_clean_median<-c()
+totals_clean<-c()
+for (i in day_clean) {
+  sample_clean<-subset(datos_limpios, date==i)
+  daily_clean_mean<-c(daily_clean_mean, mean(sample_clean$steps, na.rm=TRUE) )
+  daily_clean_median<-c(daily_clean_median, median(sample_clean$steps, na.rm=TRUE) )
+  totals_clean<-c(totals_clean,sum(sample_clean$steps, na.rm=FALSE) )
+}
+resumen_clean<-data.frame(day_clean, daily_clean_mean, daily_clean_median, totals_clean)
+par(mfrow=c(1,2))
+grafo2<-hist(resumen_clean$totals, main="Steps per day with NA replaced", xlab="Total steps per day", ylab="Total days",col="darkolivegreen", ylim=c(0,30), breaks=8)
+text(grafo2$mids, grafo2$counts, labels=grafo2$counts, adj=c(0.5, -0.5))
 
+grafo1<-hist(resumen$totals, main="Steps per day", xlab="Total steps per day", ylab="Total days",col="darkgreen", ylim=c(0,30), breaks=8)
+text(grafo1$mids, grafo1$counts, labels=grafo1$counts, adj=c(0.5, -0.5))
+```
+As we can observe, the first histogram (replacing NA values) is affected in central peak, passing from 16 to 24 days with 10,000 steps per day
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r, echo=FALSE}
+day_of_week<-function(x) format(as.Date(x), "%A")
+datos_limpios$dia<-day_of_week(datos_limpios$date)
+```
+Step 1: obtain day of the week and looking it as levels
+```{r, echo=TRUE}
+levels(as.factor(datos_limpios$dia))
+```
+Days of the week are in spanish, so I construct 2 subsets (weekends and weekdays) considering days in spanish
+
+```{r, echo=FALSE}
+week_ends<-datos_limpios[ datos_limpios$dia=="sábado" | datos_limpios$dia=="domingo",c(1,2,3) ]
+week_days<-datos_limpios[datos_limpios$dia=="lunes" | datos_limpios$dia=="martes" | datos_limpios$dia=="miércoles" | datos_limpios$dia=="jueves" | datos_limpios$dia=="viernes",c(1,2,3)]
+
+intervalos<-levels(as.factor(datos_limpios$interval))
+interval_average_wd<-c()
+interval_average_we<-c()
+for (i in intervalos) {
+  muestra1<-subset(week_days, interval==i)
+  interval_average_wd<-c(interval_average_wd, mean(muestra1$steps, na.rm=TRUE))
+  muestra2<-subset(week_ends, interval==i)
+  interval_average_we<-c(interval_average_we, mean(muestra2$steps, na.rm=TRUE))
+}
+par(mfrow=c(2,1))
+plot(x=intervalos, y=interval_average_we, type="l", col="green", main="mean steps on weekends",ylim=c(0,220))
+
+plot(x=intervalos, y=interval_average_wd, type="l", col="darkgreen", main="mean steps on weekdays", ylim=c(0,220))
+
+
+
+```
+
+
